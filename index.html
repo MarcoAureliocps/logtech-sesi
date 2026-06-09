@@ -216,7 +216,22 @@
         <input id="senha" type="password" autocomplete="current-password" placeholder="••••••••">
       </div>
       <button class="btn" style="width:100%" id="btn-entrar"><i class="ph ph-sign-in"></i> Entrar no sistema</button>
-      <p style="text-align:center;margin:20px 0 0"><button class="link" id="ir-recuperar">Primeiro acesso? Cadastrar senha</button></p>
+      <p style="text-align:center;margin:20px 0 0"><button class="link" id="ir-cadastrar">Primeiro acesso? Criar conta</button></p>
+      <p style="text-align:center;margin:8px 0 0"><button class="link" id="ir-recuperar" style="font-size:13px;color:var(--muted)">Esqueci minha senha</button></p>
+    </div>
+
+    <div id="form-cadastro" class="hidden">
+      <p class="sub" style="margin-top:0">Primeiro acesso: use seu e-mail institucional para criar sua senha.</p>
+      <div class="field">
+        <label>E-mail institucional</label>
+        <input id="email-cad" type="email" placeholder="nome@portalsesisp.org.br">
+      </div>
+      <div class="field">
+        <label>Crie uma senha</label>
+        <input id="senha-cad" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      </div>
+      <button class="btn" style="width:100%" id="btn-cadastrar"><i class="ph ph-user-plus"></i> Criar minha conta</button>
+      <p style="text-align:center;margin:20px 0 0"><button class="link" id="voltar-cadastro"><i class="ph ph-arrow-left"></i> Já tenho conta</button></p>
     </div>
 
     <div id="form-recuperar" class="hidden">
@@ -322,8 +337,26 @@ $('btn-entrar').onclick = async () => {
   $('btn-entrar').disabled=false; $('btn-entrar').innerHTML='<i class="ph ph-sign-in"></i> Entrar no sistema';
   if(error){ loginMsg('E-mail ou senha incorretos.','err'); }
 };
-$('ir-recuperar').onclick = () => { $('form-entrar').classList.add('hidden'); $('form-recuperar').classList.remove('hidden'); loginMsg(''); };
-$('voltar-entrar').onclick = () => { $('form-recuperar').classList.add('hidden'); $('form-entrar').classList.remove('hidden'); loginMsg(''); };
+function mostrarForm(id){ ['form-entrar','form-cadastro','form-recuperar','form-novasenha'].forEach(f=>$(f).classList.add('hidden')); $(id).classList.remove('hidden'); loginMsg(''); }
+$('ir-recuperar').onclick = () => mostrarForm('form-recuperar');
+$('ir-cadastrar').onclick = () => mostrarForm('form-cadastro');
+$('voltar-cadastro').onclick = () => mostrarForm('form-entrar');
+$('btn-cadastrar').onclick = async () => {
+  loginMsg('');
+  const email=$('email-cad').value.trim(), password=$('senha-cad').value;
+  if(!email||password.length<6){ loginMsg('Informe o e-mail e uma senha de ao menos 6 caracteres.','err'); return; }
+  $('btn-cadastrar').disabled=true; $('btn-cadastrar').innerHTML='<i class="ph ph-spinner ph-spin"></i> Criando...';
+  const {data,error} = await db.auth.signUp({email,password});
+  $('btn-cadastrar').disabled=false; $('btn-cadastrar').innerHTML='<i class="ph ph-user-plus"></i> Criar minha conta';
+  if(error){
+    if(/already|registered|exists/i.test(error.message)) loginMsg('Esse e-mail já tem conta. Use "Já tenho conta" para entrar.','err');
+    else if(/autoriz|denied|Database error|not allowed/i.test(error.message)) loginMsg('E-mail não autorizado. Use o e-mail institucional da lista da escola.','err');
+    else loginMsg('Não foi possível criar a conta: '+error.message,'err');
+    return;
+  }
+  if(!data.session){ loginMsg('Conta criada! Verifique seu e-mail para confirmar e depois entre.','ok'); }
+};
+$('voltar-entrar').onclick = () => mostrarForm('form-entrar');
 $('btn-recuperar').onclick = async () => {
   const email=$('email-rec').value.trim();
   if(!email){ loginMsg('Digite seu e-mail.','err'); return; }
@@ -347,8 +380,7 @@ $('btn-sair').onclick = async () => { await db.auth.signOut(); location.reload()
 db.auth.onAuthStateChange((event, session) => {
   if(event==='PASSWORD_RECOVERY'){
     $('login').classList.remove('hidden'); $('app').classList.add('hidden');
-    $('form-entrar').classList.add('hidden'); $('form-recuperar').classList.add('hidden');
-    $('form-novasenha').classList.remove('hidden'); loginMsg('');
+    mostrarForm('form-novasenha');
   } else if(session){ entrarApp(session); }
   else { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 });
@@ -357,6 +389,7 @@ db.auth.onAuthStateChange((event, session) => {
   if(SUPABASE_URL.includes('SEU-PROJETO')) return;
   const {data:{session}} = await db.auth.getSession();
   if(session) entrarApp(session);
+  else if(location.hash==='#cadastro'){ mostrarForm('form-cadastro'); }
 })();
 
 /* ============================================================
