@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOGTECH · Escola SESI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --ink: #0f172a; 
+    --muted: #64748b; 
+    --bg: #f8fafc; 
+    --surface: #ffffff; 
+    --border: #e2e8f0;
+    --accent: #2563eb; 
+    --accent-soft: #eff6ff;
+    --accent-hover: #1d4ed8;
+    --green: #059669; 
+    --green-soft: #ecfdf5; 
+    --amber: #d97706; 
+    --amber-soft: #fffbeb;
+    --red: #dc2626; 
+    --red-soft: #fef2f2; 
+    --sesi: #d8202f;
+    --radius: 16px; 
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 20px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 10px 30px rgba(37, 99, 235, 0.1);
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, .num { font-family: 'Space Grotesk', Inter, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  
+  /* Inputs */
+  input, select, textarea { font-family: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; width: 100%; outline: none; transition: var(--transition); box-shadow: var(--shadow-sm); }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  label { font-size: 13px; color: var(--ink); font-weight: 600; display: block; margin-bottom: 6px; }
+  
+  /* Botões */
+  .btn { background: var(--accent); color: #fff; border-radius: var(--radius-sm); padding: 12px 20px; font-weight: 600; font-size: 14px; transition: var(--transition); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-ghost { background: transparent; color: var(--accent); box-shadow: none; border: 1.5px solid var(--accent-soft); }
+  .btn-ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
+  .btn-ok { background: var(--green-soft); color: var(--green); box-shadow: none; }
+  .btn-ok:hover { background: var(--green); color: #fff; }
+  .btn-danger { background: var(--red-soft); color: var(--red); box-shadow: none; }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+  
+  .link { color: var(--accent); font-size: 14px; font-weight: 500; transition: var(--transition); }
+  .link:hover { color: var(--accent-hover); text-decoration: underline; }
+  .hidden { display: none !important; }
+  
+  /* Badges/Pills */
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; letter-spacing: 0.02em; }
+  .pill-info { background: var(--accent-soft); color: var(--accent); }
+  .pill-ok { background: var(--green-soft); color: var(--green); }
+  .pill-warn { background: var(--amber-soft); color: var(--amber); }
+  .pill-danger { background: var(--red-soft); color: var(--red); }
+
+  /* ---------- Login ---------- */
+  #login { position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(circle at top right, var(--accent-soft), var(--bg) 60%); }
+  .card-login { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 40px 32px; width: 400px; max-width: 100%; position: relative; overflow: hidden; z-index: 10; }
+  .card-login::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--sesi), var(--accent)); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { height: 38px; object-fit: contain; }
+  .sub { font-size: 14px; color: var(--muted); margin: 12px 0 28px; }
+  .field { margin-bottom: 18px; }
+  .msg { font-size: 13px; font-weight: 500; margin-top: 16px; padding: 12px 14px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 8px; animation: fade 0.3s; }
+  .msg.err { background: var(--red-soft); color: var(--red); border-left: 3px solid var(--red); }
+  .msg.ok { background: var(--green-soft); color: var(--green); border-left: 3px solid var(--green); }
+
+  /* ---------- App Layout ---------- */
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  .topbar { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 32px; height: 70px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar .who { display: flex; align-items: center; gap: 16px; font-size: 14px; color: var(--muted); font-weight: 500; }
+  
+  .tabs { display: flex; gap: 8px; padding: 16px 32px 0; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 12px 20px; font-size: 15px; color: var(--muted); border-bottom: 3px solid transparent; white-space: nowrap; transition: var(--transition); font-weight: 500; display: flex; align-items: center; gap: 8px; margin-bottom: -1px; }
+  .tab:hover { color: var(--accent); background: var(--accent-soft); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 40px; width: 100%; flex: 1; }
+  .view { animation: fade 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  
+  .grid { display: grid; gap: 16px; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px; }
+  .resources { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  
+  /* Cards */
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-sm); transition: var(--transition); display: flex; flex-direction: column; justify-content: center; }
+  .stat:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .stat .k { font-size: 14px; color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .stat .v { font-size: 36px; font-weight: 700; margin-top: 8px; letter-spacing: -0.03em; }
+  
+  .rcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; overflow: hidden; }
+  .rcard:hover { box-shadow: var(--shadow-md); border-color: var(--accent-soft); transform: translateY(-2px); }
+  .rcard::after { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%); opacity: 0.5; border-radius: 50%; transform: translate(30%, -30%); pointer-events: none; }
+  .rcard .head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+  .rcard .big { font-size: 28px; font-weight: 700; margin: 4px 0; }
+  .rcard .big small { font-size: 14px; color: var(--muted); font-weight: 500; }
+  .bar { height: 8px; border-radius: 99px; background: var(--border); margin: 16px 0 12px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+  .rcard .foot { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); font-weight: 500; }
+  
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 24px; box-shadow: var(--shadow-sm); }
+  .panel h2 { font-size: 20px; margin: 0 0 24px; display: flex; align-items: center; gap: 8px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width: 640px) { .row2 { grid-template-columns: 1fr; } }
+  
+  /* Tables */
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 12px 16px; border-bottom: 2px solid var(--border); background: #fafafa; }
+  th:first-child { border-top-left-radius: 8px; }
+  th:last-child { border-top-right-radius: 8px; }
+  td { padding: 16px; border-bottom: 1px solid var(--border); vertical-align: middle; transition: background 0.15s; }
+  tr:hover td { background: var(--bg); }
+  tr:last-child td { border-bottom: none; }
+  .empty { color: var(--muted); font-size: 15px; padding: 32px; text-align: center; background: var(--bg); border-radius: var(--radius-sm); border: 1px dashed var(--border); }
+  
+  /* Combobox / Busca */
+  .combo { position: relative; }
+  .combo-list { position: absolute; left: 0; right: 0; top: calc(100% + 8px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); max-height: 250px; overflow: auto; z-index: 20; padding: 8px; }
+  .combo-item { padding: 10px 14px; font-size: 14px; cursor: pointer; border-radius: 6px; transition: var(--transition); }
+  .combo-item:hover, .combo-item.hi { background: var(--accent-soft); color: var(--accent-hover); }
+  .combo-item small { color: var(--muted); display: block; font-size: 12px; margin-top: 2px; }
+  
+  .chip { display: flex; align-items: center; gap: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; background: var(--surface); box-shadow: var(--shadow-sm); }
+  .chip .av { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #4f46e5); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex: none; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+  
+  .note { display: flex; gap: 12px; align-items: flex-start; background: var(--accent-soft); color: var(--accent-hover); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 14px; margin: 20px 0; border: 1px solid rgba(37, 99, 235, 0.1); line-height: 1.5; }
+  .note i { font-size: 20px; flex: none; }
+  
+  /* Grid do Carrinho */
+  .grid-carrinho-container { margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; }
+  .grid-carrinho-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .grid-carrinho-header h3 { margin: 0; font-size: 14px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .grid-carrinho-legend { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-box { width: 12px; height: 12px; border-radius: 3px; }
+  
+  .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 10px; user-select: none; }
+  .slot-btn { aspect-ratio: 1; border-radius: 8px; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; font-family: 'Space Grotesk'; transition: background-color 0.1s, transform 0.1s; user-select: none; }
+  
+  .slot-btn.livre { background: var(--surface); border-color: var(--border); color: var(--muted); cursor: crosshair; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .slot-btn.livre:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(37,99,235,0.15); }
+  .slot-btn.selecionado { background: var(--accent) !important; border-color: var(--accent) !important; color: white !important; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(37,99,235,0.3); }
+  .slot-btn.ocupado { background: var(--red-soft); border-color: transparent; color: var(--red); cursor: not-allowed; opacity: 0.7; position: relative; overflow: hidden; }
+  .slot-btn.ocupado::after { content: ''; position: absolute; width: 100%; height: 2px; background: rgba(220,38,38,0.3); transform: rotate(45deg); }
+
+  /* Toast */
+  #toasts { position: fixed; right: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+  .toast { background: var(--ink); color: #fff; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); max-width: 350px; animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; gap: 10px; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+  .toast.ok { background: var(--green); } .toast.err { background: var(--red); } .toast.warn { background: var(--amber); }
+  .canvas-box { position: relative; height: 260px; width: 100%; mt-4 }
+
+  /* --- FOOTER MARCODE --- */
+  .site-footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 13px;
+    color: var(--muted);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .site-footer b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .site-footer .ph-code {
+    color: var(--accent);
+    font-size: 18px;
+  }
+  #login .site-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card-login">
+    <div class="brand">
+      <img src="logo.png" alt="SESI">
+    </div>
+    <p class="sub">Gestão de Ativos Logtech · Escola de Sumaré</p>
+
+    <div id="form-entrar">
+      <div class="field">
+        <label>E-mail institucional</label>
+        <input id="email" type="email" autocomplete="username" placeholder="nome@portalsesisp.org.br">
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input id="senha" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button class="btn" style="width:100%" id="btn-entrar"><i class="ph ph-sign-in"></i> Entrar no sistema</button>
+      <p style="text-align:center;margin:20px 0 0"><button class="link" id="ir-recuperar">Primeiro acesso? Cadastrar senha</button></p>
+    </div>
+
+    <div id="form-recuperar" class="hidden">
+      <p class="sub" style="margin-top:0">Digite seu e-mail e enviaremos um link mágico para você redefinir sua senha.</p>
+      <div class="field">
+        <label>E-mail institucional</label>
+        <input id="email-rec" type="email" placeholder="nome@portalsesisp.org.br">
+      </div>
+      <button class="btn" style="width:100%" id="btn-recuperar"><i class="ph ph-paper-plane-tilt"></i> Enviar link mágico</button>
+      <p style="text-align:center;margin:20px 0 0"><button class="link" id="voltar-entrar"><i class="ph ph-arrow-left"></i> Voltar ao login</button></p>
+    </div>
+
+    <div id="form-novasenha" class="hidden">
+      <p class="sub" style="margin-top:0">Crie sua nova senha de acesso seguro.</p>
+      <div class="field">
+        <label>Nova senha</label>
+        <input id="nova-senha" type="password" autocomplete="new-password" placeholder="••••••••">
+      </div>
+      <button class="btn" style="width:100%" id="btn-novasenha"><i class="ph ph-check-circle"></i> Salvar senha</button>
+    </div>
+
+    <div id="login-msg"></div>
+  </div>
+  
+  <div class="site-footer">
+    Criado e desenvolvido por <b>marcode</b> <i class="ph-bold ph-code"></i>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="brand">
+      <img src="logo.png" alt="SESI">
+    </div>
+    <div class="who">
+      <span id="who-papel" class="pill pill-info"></span>
+      <span id="who-email"></span>
+      <button class="btn btn-ghost btn-sm" id="btn-sair" style="border:none; padding:8px"><i class="ph ph-sign-out" style="font-size:18px"></i></button>
+    </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="wrap" id="content"></div>
+  
+  <div class="site-footer" style="margin-top: auto;">
+    Criado e desenvolvido por <b>marcode</b> <i class="ph-bold ph-code"></i>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO DO BANCO DE DADOS
+   ============================================================ */
+const SUPABASE_URL = 'https://aelknygjeyajqmxtbnqr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_C7QDq9yT2AN6a9SaIMePtw_j4EhPpou';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CORES = {
+  preto: '#334155', 
+  vermelho: '#ef4444', 
+  cinza_celular: '#3b82f6', 
+  cinza_computador: '#8b5cf6', 
+  jbl: '#f59e0b',
+  verde: '#10b981'
+};
+const LABEL_PAPEL = { equipe: 'Equipe', oed: 'OED · Admin', diretora: 'Diretora' };
+const ICONES_ABAS = { visao: 'chart-pie-slice', retirada: 'hand-pointing', emprestimos: 'devices', liberacoes: 'key', relatorios: 'chart-bar', colaboradores: 'users' };
+
+const state = { papel: 'equipe', cpf: null, email: '', colaboradores: [], recursos: [], emprestimos: [], selCpf: null, aba: 'visao', numerosSelecionados: [] };
+let charts = {};
+
+/* ---------- Utilitários ---------- */
+const $ = id => document.getElementById(id);
+function toast(m, tipo){ 
+  const t = document.createElement('div'); 
+  t.className = 'toast ' + (tipo || ''); 
+  const icon = tipo === 'ok' ? 'check-circle' : tipo === 'err' ? 'x-circle' : 'warning-circle';
+  t.innerHTML = `<i class="ph-fill ph-${icon}" style="font-size:20px"></i> ${m}`; 
+  $('toasts').appendChild(t); 
+  setTimeout(() => t.remove(), 4000); 
+}
+function maskCpf(c){ if(!c) return '—'; const s=String(c).replace(/\D/g,'').padStart(11,'0'); return `${s.slice(0,3)}.***.***-${s.slice(-2)}`; }
+function iniciais(nome){ const p=(nome||'').trim().split(/\s+/); return ((p[0]||'')[0]||'')+((p[p.length-1]||'')[0]||''); }
+function fmtData(d){ if(!d) return '—'; return new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function diasAtraso(emp){ if(emp.status!=='ativo'||emp.liberado) return 0; const d=(Date.now()-new Date(emp.devolucao_prevista).getTime())/86400000; return d>0?d:0; }
+function loginMsg(txt, tipo){ 
+  const m=$('login-msg'); 
+  if(!txt){m.innerHTML=''; return;} 
+  const icon = tipo === 'ok' ? 'check-circle' : 'warning-circle';
+  m.innerHTML=`<div class="msg ${tipo||''}"><i class="ph ph-${icon}"></i> ${txt}</div>`; 
+}
+
+/* ============================================================
+   AUTENTICAÇÃO
+   ============================================================ */
+$('btn-entrar').onclick = async () => {
+  loginMsg('');
+  const email=$('email').value.trim(), password=$('senha').value;
+  if(!email||!password){ loginMsg('Preencha e-mail e senha.','err'); return; }
+  $('btn-entrar').disabled=true; $('btn-entrar').innerHTML='<i class="ph ph-spinner ph-spin"></i> Conectando...';
+  const {error} = await db.auth.signInWithPassword({email,password});
+  $('btn-entrar').disabled=false; $('btn-entrar').innerHTML='<i class="ph ph-sign-in"></i> Entrar no sistema';
+  if(error){ loginMsg('E-mail ou senha incorretos.','err'); }
+};
+$('ir-recuperar').onclick = () => { $('form-entrar').classList.add('hidden'); $('form-recuperar').classList.remove('hidden'); loginMsg(''); };
+$('voltar-entrar').onclick = () => { $('form-recuperar').classList.add('hidden'); $('form-entrar').classList.remove('hidden'); loginMsg(''); };
+$('btn-recuperar').onclick = async () => {
+  const email=$('email-rec').value.trim();
+  if(!email){ loginMsg('Digite seu e-mail.','err'); return; }
+  $('btn-recuperar').disabled=true;
+  const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: window.location.href.split('#')[0]});
+  $('btn-recuperar').disabled=false;
+  if(error){ loginMsg('Não foi possível enviar agora. Tente mais tarde.','err'); }
+  else { loginMsg('Pronto! Verifique sua caixa de entrada.','ok'); }
+};
+$('btn-novasenha').onclick = async () => {
+  const password=$('nova-senha').value;
+  if(password.length<6){ loginMsg('Use ao menos 6 caracteres.','err'); return; }
+  $('btn-novasenha').disabled=true;
+  const {error} = await db.auth.updateUser({password});
+  $('btn-novasenha').disabled=false;
+  if(error){ loginMsg('Erro ao salvar nova senha.','err'); }
+  else { loginMsg('Senha atualizada com sucesso!','ok'); }
+};
+$('btn-sair').onclick = async () => { await db.auth.signOut(); location.reload(); };
+
+db.auth.onAuthStateChange((event, session) => {
+  if(event==='PASSWORD_RECOVERY'){
+    $('login').classList.remove('hidden'); $('app').classList.add('hidden');
+    $('form-entrar').classList.add('hidden'); $('form-recuperar').classList.add('hidden');
+    $('form-novasenha').classList.remove('hidden'); loginMsg('');
+  } else if(session){ entrarApp(session); }
+  else { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
+});
+
+(async function init(){
+  if(SUPABASE_URL.includes('SEU-PROJETO')) return;
+  const {data:{session}} = await db.auth.getSession();
+  if(session) entrarApp(session);
+})();
+
+/* ============================================================
+   INICIALIZAÇÃO DO APP
+   ============================================================ */
+async function entrarApp(session){
+  try{
+    const {data:perfil} = await db.from('perfis').select('papel,cpf').eq('id',session.user.id).single();
+    state.papel = perfil?.papel || 'equipe';
+    state.cpf = perfil?.cpf || null;
+    state.email = session.user.email;
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('who-email').textContent = state.email;
+    $('who-papel').innerHTML = `<i class="ph ph-shield-check"></i> ${LABEL_PAPEL[state.papel] || state.papel}`;
+    montarTabs();
+    await recarregarTudo();
+    abrir(state.aba);
+  }catch(e){ toast('Erro de sincronização. Recarregue a página.','err'); }
+}
+
+async function recarregarTudo(){ await Promise.all([carregarRecursos(), carregarColaboradores(), carregarEmprestimos()]); }
+async function carregarRecursos(){ const {data} = await db.from('disponibilidade').select('*').order('id'); state.recursos = data||[]; }
+async function carregarColaboradores(){ const {data} = await db.from('colaboradores').select('nome,cpf,cargo,email').order('nome'); state.colaboradores = data||[]; }
+async function carregarEmprestimos(){ const {data} = await db.from('emprestimos').select('*, colaboradores(nome), recursos(nome,codigo,cor,total)').order('retirado_em',{ascending:false}); state.emprestimos = data||[]; }
+
+/* ============================================================
+   NAVEGAÇÃO (ABAS)
+   ============================================================ */
+function abasDoPapel(){
+  const base=[['visao','Visão geral'],['retirada','Retirar Recurso'],['emprestimos','Empréstimos Ativos']];
+  if(state.papel==='oed'||state.papel==='diretora'){ base.push(['liberacoes','Liberações Pendentes'],['relatorios','Dashboard'],['colaboradores','Equipe Escolar']); }
+  return base;
+}
+function montarTabs(){
+  $('tabs').innerHTML = abasDoPapel().map(([id,nome])=>`<button class="tab" data-aba="${id}"><i class="ph ph-${ICONES_ABAS[id]}"></i> ${nome}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b=> b.onclick=()=>abrir(b.dataset.aba));
+}
+function abrir(aba){
+  state.aba=aba;
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.aba===aba));
+  const fn={visao:renderVisao, retirada:renderRetirada, emprestimos:renderEmprestimos, liberacoes:renderLiberacoes, relatorios:renderRelatorios, colaboradores:renderColaboradores}[aba];
+  fn && fn();
+}
+
+/* ============================================================
+   TELA 1: VISÃO GERAL
+   ============================================================ */
+function renderVisao(){
+  const total=state.recursos.reduce((s,r)=>s+r.total,0);
+  const emUso=state.recursos.reduce((s,r)=>s+r.em_uso,0);
+  const cards=state.recursos.map(r=>{
+    const cor=CORES[r.codigo]||'var(--accent)';
+    const pct= r.total? Math.round(r.em_uso/r.total*100):0;
+    let pill = r.disponivel<=0 ? '<span class="pill pill-danger"><i class="ph ph-warning-circle"></i> Esgotado</span>'
+             : r.em_uso>0 ? `<span class="pill pill-info"><i class="ph ph-clock-counter-clockwise"></i> ${r.em_uso} em uso</span>`
+             : '<span class="pill pill-ok"><i class="ph ph-check-circle"></i> Disponível</span>';
+    return `<div class="rcard">
+      <div class="head"><span class="dot" style="background:${cor}"></span>${r.nome}</div>
+      <div class="big num">${r.disponivel}<small> de ${r.total} livres</small></div>
+      <div class="bar"><span style="width:${pct}%;background:${cor}"></span></div>
+      <div class="foot"><span>Taxa de uso: ${pct}%</span>${pill}</div>
+    </div>`;
+  }).join('');
+  
+  $('content').innerHTML = `<div class="view">
+    <div class="grid stats">
+      <div class="stat"><div class="k"><i class="ph ph-devices" style="font-size:18px"></i> Equipamentos Livres</div><div class="v num" style="color:var(--green)">${total-emUso}</div></div>
+      <div class="stat"><div class="k"><i class="ph ph-hand-grabbing" style="font-size:18px"></i> Em uso no momento</div><div class="v num" style="color:var(--accent)">${emUso}</div></div>
+      <div class="stat"><div class="k"><i class="ph ph-stack" style="font-size:18px"></i> Total do Inventário</div><div class="v num">${total}</div></div>
+    </div>
+    <h2 style="margin-top:10px; font-size:18px; color:var(--ink)"><i class="ph ph-grid-four"></i> Status por Categoria</h2>
+    <div class="grid resources" style="margin-top:16px">${cards||'<div class="empty">Nenhum recurso cadastrado.</div>'}</div>
+  </div>`;
+}
+
+/* ============================================================
+   TELA 2: NOVA RETIRADA
+   ============================================================ */
+function renderRetirada(){
+  state.selCpf=null;
+  state.numerosSelecionados=[];
+  
+  const opcoes=state.recursos.map(r=>`<option value="${r.id}">${r.nome} — ${r.disponivel} livres</option>`).join('');
+  const agora=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  
+  $('content').innerHTML=`<div class="view">
+    <div class="panel" style="max-width:680px; margin: 0 auto;">
+      <h2><i class="ph ph-hand-pointing"></i> Registrar Nova Retirada</h2>
+      
+      <div class="field">
+        <label><i class="ph ph-user"></i> Professor / Aluno Responsável</label>
+        <div class="combo">
+          <input id="busca-col" placeholder="Digite o nome para buscar..." autocomplete="off">
+          <div id="combo-list" class="combo-list hidden"></div>
+        </div>
+        <div id="col-sel" class="hidden" style="margin-top:12px"></div>
+      </div>
+      
+      <div class="field">
+        <label><i class="ph ph-cube"></i> Qual recurso será retirado?</label>
+        <select id="rec-sel">
+          <option value="" disabled selected>Selecione um equipamento ou carrinho...</option>
+          ${opcoes}
+        </select>
+      </div>
+
+      <div id="area-numeros">
+         <div class="field" id="box-input-numeros">
+           <label><i class="ph ph-list-numbers"></i> Quantidade ou Identificadores</label>
+           <input id="numeros" placeholder="Ex: 4, 8, 15 (Para itens únicos, deixe vazio)">
+         </div>
+         <div id="box-grid-carrinho" class="hidden"></div>
+      </div>
+      
+      <div class="row2" style="margin-top:20px">
+        <div class="field">
+          <label><i class="ph ph-calendar-blank"></i> Previsão de Devolução</label>
+          <input id="prazo" type="datetime-local" value="${agora}">
+        </div>
+        <div class="field">
+          <label><i class="ph ph-chat-text"></i> Observação Pedagógica</label>
+          <input id="obs" placeholder="Ex: Aula prática de robótica turma 3A">
+        </div>
+      </div>
+      
+      <button class="btn" id="btn-retirar" style="width:100%; margin-top:16px; font-size:16px; padding:16px"><i class="ph ph-check-circle"></i> Confirmar Retirada</button>
+    </div>
+  </div>`;
+
+  const inp=$('busca-col'), list=$('combo-list');
+  inp.oninput=()=>{
+    const q=inp.value.toLowerCase().trim();
+    if(!q){ list.classList.add('hidden'); return; }
+    const res=state.colaboradores.filter(c=>c.nome.toLowerCase().includes(q)).slice(0,6);
+    list.innerHTML=res.map(c=>`<div class="combo-item" data-cpf="${c.cpf}"><b>${c.nome}</b><small>${c.cargo||'Membro'} · CPF: ${maskCpf(c.cpf)}</small></div>`).join('')||'<div class="combo-item" style="color:var(--muted)">Nenhum registro encontrado.</div>';
+    list.classList.remove('hidden');
+    list.querySelectorAll('[data-cpf]').forEach(it=> it.onclick=()=>selecionarCol(it.dataset.cpf));
+  };
+  
+  inp.onblur=()=>setTimeout(()=>list.classList.add('hidden'), 200);
+  
+  $('rec-sel').onchange = () => gerarGridCarrinho($('rec-sel').value);
+  $('btn-retirar').onclick=registrarRetirada;
+}
+
+function selecionarCol(cpf){
+  const c=state.colaboradores.find(x=>x.cpf===cpf); if(!c) return;
+  state.selCpf=cpf;
+  $('busca-col').value=''; 
+  $('busca-col').placeholder = 'Alterar responsável...';
+  $('combo-list').classList.add('hidden');
+  $('col-sel').classList.remove('hidden');
+  $('col-sel').innerHTML=`<div class="chip" style="border-color:var(--accent); background:var(--accent-soft)"><span class="av">${iniciais(c.nome)}</span><div style="flex:1"><div style="font-weight:600;color:var(--accent-hover)">${c.nome}</div><div style="font-size:12px;color:var(--accent)">${maskCpf(c.cpf)} · ${c.cargo||'Membro'}</div></div><i class="ph-fill ph-check-circle" style="color:var(--accent);font-size:24px"></i></div>`;
+}
+
+// =========================================================================
+// LÓGICA DO GRID VISUAL (ATUALIZADA COM "CLIQUE E ARRASTE")
+// =========================================================================
+function gerarGridCarrinho(recId) {
+  state.numerosSelecionados = [];
+  const rec = state.recursos.find(r => r.id == recId);
+  const boxInput = $('box-input-numeros');
+  const boxGrid = $('box-grid-carrinho');
+  
+  if (!rec || !rec.total || rec.total <= 1) {
+    boxGrid.classList.add('hidden');
+    boxGrid.innerHTML = '';
+    boxInput.classList.remove('hidden');
+    return;
+  }
+  
+  boxInput.classList.add('hidden');
+  boxGrid.classList.remove('hidden');
+  
+  const ativos = state.emprestimos.filter(e => e.status === 'ativo' && e.recurso_id == recId);
+  const ocupados = new Set();
+  ativos.forEach(e => { if(e.numeros) e.numeros.forEach(n => ocupados.add(n)); });
+  
+  let html = `
+    <div class="grid-carrinho-container">
+      <div class="grid-carrinho-header">
+        <h3><i class="ph-fill ph-charging-station" style="color:var(--accent)"></i> Selecione os slots do ${rec.nome}</h3>
+        <div class="grid-carrinho-legend">
+          <span class="legend-item"><div class="legend-box" style="background:var(--surface);border:1px solid var(--border)"></div> Livre</span>
+          <span class="legend-item"><div class="legend-box" style="background:var(--accent)"></div> Selecionado</span>
+          <span class="legend-item"><div class="legend-box" style="background:var(--red-soft)"></div> Em Uso</span>
+        </div>
+      </div>
+      <div class="slots-grid" id="slots-grid-interativo">`;
+      
+  for(let i = 1; i <= rec.total; i++) {
+    const isOcupado = ocupados.has(i);
+    html += `<div class="slot-btn ${isOcupado ? 'ocupado' : 'livre'}" data-num="${i}">${i}</div>`;
+  }
+  
+  html += `</div>
+      <div style="margin-top:16px; font-size:13px; color:var(--accent); font-weight:500; display:flex; align-items:center; gap:6px; background:var(--accent-soft); padding:8px 12px; border-radius:8px;">
+        <i class="ph-fill ph-mouse-left-click" style="font-size:18px"></i> 
+        Dica: Clique e arraste o mouse por cima dos números para selecionar vários itens rapidamente.
+      </div>
+    </div>`;
+  
+  boxGrid.innerHTML = html;
+  
+  // ----- IMPLEMENTAÇÃO DO DRAG-TO-SELECT -----
+  let isDragging = false;
+  let dragMode = true; // true = estamos selecionando, false = estamos removendo a seleção
+  
+  const gridContainer = $('slots-grid-interativo');
+  
+  // Previne que o navegador tente arrastar elementos fantasma (como textos ou bordas)
+  gridContainer.ondragstart = () => false;
+  
+  // Cancela o modo arrastar se o usuário soltar o clique fora da área do grid
+  document.onmouseup = () => { isDragging = false; };
+
+  boxGrid.querySelectorAll('.slot-btn.livre').forEach(btn => {
+    
+    // Quando aperta o botão do mouse
+    btn.onmousedown = (e) => {
+      isDragging = true;
+      const num = parseInt(btn.dataset.num);
+      
+      // Verifica se o item já está selecionado para definir a "direção" do pincel
+      const isSelected = state.numerosSelecionados.includes(num);
+      dragMode = !isSelected; 
+      
+      toggleSlot(btn, num, dragMode);
+    };
+
+    // Quando passa por cima de outro quadrado e o mouse está pressionado
+    btn.onmouseenter = (e) => {
+      if(isDragging) {
+        const num = parseInt(btn.dataset.num);
+        toggleSlot(btn, num, dragMode);
+      }
+    };
+  });
+}
+
+function toggleSlot(btn, num, forceSelect) {
+  if (forceSelect) {
+    if (!state.numerosSelecionados.includes(num)) {
+      state.numerosSelecionados.push(num);
+      btn.classList.add('selecionado');
+    }
+  } else {
+    state.numerosSelecionados = state.numerosSelecionados.filter(n => n !== num);
+    btn.classList.remove('selecionado');
+  }
+}
+
+async function registrarRetirada(){
+  if(!state.selCpf){ toast('Por favor, informe o responsável pela retirada.','warn'); return; }
+  if(!$('rec-sel').value){ toast('Selecione um recurso.','warn'); return; }
+  
+  const recurso_id = parseInt($('rec-sel').value);
+  const rec = state.recursos.find(r => r.id === recurso_id);
+  
+  let numeros = [];
+  if (rec && rec.total > 1) {
+    numeros = state.numerosSelecionados;
+    if(numeros.length === 0) { toast('Clique nos números que deseja retirar no painel visual.','warn'); return; }
+  } else {
+    const txt = $('numeros').value;
+    numeros = txt ? txt.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)) : [];
+  }
+  
+  const quantidade = numeros.length || 1;
+  const prazo = $('prazo').value;
+  if(!prazo){ toast('A previsão de devolução é obrigatória.','warn'); return; }
+  
+  if(rec && quantidade > rec.disponivel){ toast(`Atenção: Apenas ${rec.disponivel} unidade(s) de ${rec.nome} disponíveis.`,'err'); return; }
+  
+  $('btn-retirar').disabled=true;
+  $('btn-retirar').innerHTML = '<i class="ph ph-spinner ph-spin"></i> Registrando...';
+  
+  const {error}=await db.from('emprestimos').insert({
+    colaborador_cpf: state.selCpf, recurso_id, quantidade, numeros: numeros.length ? numeros : null,
+    devolucao_prevista: new Date(prazo).toISOString(), observacao: $('obs').value.trim()||null
+  });
+  
+  if(error){ toast('Erro no banco: '+error.message,'err'); $('btn-retirar').disabled=false; $('btn-retirar').innerHTML='<i class="ph ph-check-circle"></i> Tentar Novamente'; return; }
+  
+  toast('Retirada registrada com sucesso!','ok');
+  await Promise.all([carregarRecursos(),carregarEmprestimos()]);
+  abrir('emprestimos');
+}
+
+/* ============================================================
+   TELA 3: EMPRÉSTIMOS E DEVOLUÇÕES
+   ============================================================ */
+function linhaStatus(emp){
+  const d=diasAtraso(emp);
+  if(emp.liberado) return '<span class="pill pill-info"><i class="ph ph-key"></i> Prazo Estendido</span>';
+  if(d>=1) return `<span class="pill pill-danger"><i class="ph ph-warning-circle"></i> Atraso: ${Math.floor(d)}d</span>`;
+  if(emp.status==='ativo') return '<span class="pill pill-ok"><i class="ph ph-clock"></i> No Prazo</span>';
+  return '<span class="pill pill-info" style="background:#f1f5f9;color:var(--muted)"><i class="ph ph-check"></i> Devolvido</span>';
+}
+
+function renderEmprestimos(){
+  const ativos=state.emprestimos.filter(e=>e.status==='ativo');
+  const linhas=ativos.map(e=>`<tr>
+    <td>
+      <div style="font-weight:600;color:var(--ink)">${e.colaboradores?.nome||'—'}</div>
+      <div style="font-size:12px;color:var(--muted)">CPF: ${maskCpf(e.colaborador_cpf)}</div>
+    </td>
+    <td>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="dot" style="background:${CORES[e.recursos?.codigo]||'var(--accent)'}"></span> 
+        <span style="font-weight:500">${e.recursos?.nome||'—'}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;padding-left:20px">
+        ${(e.numeros&&e.numeros.length)?'<span style="background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">IDs: '+e.numeros.join(', ')+'</span>' : e.quantidade+' unidade(s)'}
+      </div>
+    </td>
+    <td class="num" style="color:var(--muted)">${fmtData(e.devolucao_prevista)}</td>
+    <td>${linhaStatus(e)}</td>
+    <td style="text-align:right"><button class="btn btn-ghost btn-sm" style="border-color:var(--border);color:var(--ink)" data-dev="${e.id}"><i class="ph ph-arrow-u-down-left"></i> Devolver</button></td>
+  </tr>`).join('');
+  
+  $('content').innerHTML=`<div class="view"><div class="panel">
+    <h2><i class="ph ph-devices"></i> Equipamentos em Uso <span class="pill pill-info" style="margin-left:8px">${ativos.length}</span></h2>
+    ${ativos.length ? `<table><thead><tr><th>Responsável</th><th>Recurso & IDs</th><th>Data Limite</th><th>Status</th><th>Ação</th></tr></thead><tbody>${linhas}</tbody></table>` : '<div class="empty"><i class="ph ph-confetti" style="font-size:32px;display:block;margin-bottom:12px;color:var(--accent)"></i>Nenhum equipamento fora da base. Tudo organizado!</div>'}
+  </div></div>`;
+  $('content').querySelectorAll('[data-dev]').forEach(b=> b.onclick=()=>devolver(parseInt(b.dataset.dev)));
+}
+
+async function devolver(id){
+  const emp=state.emprestimos.find(e=>e.id===id);
+  const d=diasAtraso(emp);
+  if(d>3 && !emp.liberado){ toast('Dispositivo com atraso longo. Necessita liberação gerencial na aba "Liberações".','err'); return; }
+  
+  const {error}=await db.from('emprestimos').update({status:'devolvido', devolvido_em:new Date().toISOString()}).eq('id',id);
+  if(error){ toast('Falha ao comunicar devolução ao banco.','err'); return; }
+  
+  toast('Item retornado ao inventário!','ok');
+  await Promise.all([carregarRecursos(),carregarEmprestimos()]);
+  abrir('emprestimos');
+}
+
+/* ============================================================
+   TELA 4: LIBERAÇÕES GERENCIAIS
+   ============================================================ */
+function renderLiberacoes(){
+  const limite = state.papel==='diretora' ? 7 : 3;
+  const fila=state.emprestimos.filter(e=>e.status==='ativo'&&!e.liberado&&diasAtraso(e)>limite);
+  
+  const linhas=fila.map(e=>{
+    const d=Math.floor(diasAtraso(e));
+    return `<div class="chip" style="margin-bottom:12px; border-left:4px solid var(--red)">
+      <div style="flex:1">
+        <div style="font-weight:600">${e.colaboradores?.nome||'—'}</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">
+          <i class="ph ph-cube"></i> ${e.recursos?.nome||''} · ${(e.numeros&&e.numeros.length)?'IDs '+e.numeros.join(', '):e.quantidade+' un.'}
+        </div>
+        <div style="font-size:12px;color:var(--red);font-weight:600;margin-top:4px"><i class="ph ph-warning-circle"></i> Retido por ${d} dias além do prazo</div>
+      </div>
+      <button class="btn btn-ok" data-lib="${e.id}"><i class="ph ph-key"></i> Autorizar Devolução</button>
+    </div>`;
+  }).join('');
+  
+  const titulo = state.papel==='diretora' ? 'Liberações Restritas (Direção > 7 dias)' : 'Liberações Administrativas (> 3 dias)';
+  $('content').innerHTML=`<div class="view"><div class="panel">
+    <h2><i class="ph ph-lock-key"></i> ${titulo}</h2>
+    ${fila.length?linhas:'<div class="empty"><i class="ph ph-check-circle" style="font-size:32px;display:block;margin-bottom:12px;color:var(--green)"></i>Nenhuma pendência administrativa.</div>'}
+  </div></div>`;
+  $('content').querySelectorAll('[data-lib]').forEach(b=> b.onclick=()=>liberar(parseInt(b.dataset.lib)));
+}
+
+async function liberar(id){
+  const {error}=await db.rpc('liberar_atraso',{p_emprestimo:id});
+  if(error){ toast(error.message,'err'); return; }
+  toast('Exceção autorizada. O item já pode ser devolvido.','ok');
+  await carregarEmprestimos();
+  abrir('liberacoes');
+}
+
+/* ============================================================
+   TELA 5: DASHBOARD & RELATÓRIOS
+   ============================================================ */
+function renderRelatorios(){
+  const agora=new Date();
+  const inicioSemana=new Date(agora); inicioSemana.setDate(agora.getDate()-6); inicioSemana.setHours(0,0,0,0);
+  const inicioMes=new Date(agora.getFullYear(),agora.getMonth(),1);
+  const semana=state.emprestimos.filter(e=>new Date(e.retirado_em)>=inicioSemana).length;
+  const mes=state.emprestimos.filter(e=>new Date(e.retirado_em)>=inicioMes).length;
+  
+  const cont={};
+  state.emprestimos.filter(e=>new Date(e.retirado_em)>=inicioMes).forEach(e=>{const n=e.recursos?.nome||'—';cont[n]=(cont[n]||0)+1;});
+  const maisUsado=Object.entries(cont).sort((a,b)=>b[1]-a[1])[0];
+  
+  $('content').innerHTML=`<div class="view">
+    <div class="grid stats">
+      <div class="stat" style="background:var(--accent);color:white;border:none">
+        <div class="k" style="color:var(--accent-soft)"><i class="ph ph-calendar-week"></i> Retiradas na Semana</div>
+        <div class="v num">${semana}</div>
+      </div>
+      <div class="stat">
+        <div class="k"><i class="ph ph-calendar-blank"></i> Retiradas no Mês</div>
+        <div class="v num" style="color:var(--accent)">${mes}</div>
+      </div>
+      <div class="stat">
+        <div class="k"><i class="ph ph-star"></i> Top Recurso (Mês)</div>
+        <div class="v" style="font-size:18px;margin-top:12px;line-height:1.2">${maisUsado?maisUsado[0]:'N/A'}</div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="panel"><h2><i class="ph ph-trend-up"></i> Fluxo dos últimos 7 dias</h2><div class="canvas-box"><canvas id="cSemana"></canvas></div></div>
+      <div class="panel"><h2><i class="ph ph-chart-bar"></i> Visão Mensal por Semana</h2><div class="canvas-box"><canvas id="cMes"></canvas></div></div>
+    </div>
+  </div>`;
+  
+  const labelsS=[], dadosS=[];
+  for(let i=6;i>=0;i--){ 
+    const dia=new Date(agora); dia.setDate(agora.getDate()-i); dia.setHours(0,0,0,0);
+    labelsS.push(dia.toLocaleDateString('pt-BR',{weekday:'short'}));
+    const fim=new Date(dia); fim.setDate(dia.getDate()+1);
+    dadosS.push(state.emprestimos.filter(e=>{const t=new Date(e.retirado_em);return t>=dia&&t<fim;}).length);
+  }
+  
+  const semanas=[0,0,0,0,0];
+  state.emprestimos.filter(e=>new Date(e.retirado_em)>=inicioMes).forEach(e=>{const dia=new Date(e.retirado_em).getDate();const idx=Math.min(4,Math.floor((dia-1)/7));semanas[idx]++;});
+  
+  desenhar('cSemana',labelsS,dadosS,'#2563eb');
+  desenhar('cMes',['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5'],semanas,'#8b5cf6');
+}
+
+function desenhar(id,labels,data,cor){
+  if(charts[id]) charts[id].destroy();
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = "#64748b";
+  charts[id]=new Chart($(id),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:cor,borderRadius:6,borderSkipped:false,barPercentage:0.6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f172a',padding:12,cornerRadius:8}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{precision:0}},x:{grid:{display:false}}}}
+  });
+}
+
+/* ============================================================
+   TELA 6: GERENCIAMENTO DE EQUIPE
+   ============================================================ */
+function renderColaboradores(){
+  const semEmail=state.colaboradores.filter(c=>!c.email).length;
+  const linhas=state.colaboradores.map(c=>`<tr>
+    <td><div style="font-weight:600">${c.nome}</div></td>
+    <td class="num" style="color:var(--muted)">${maskCpf(c.cpf)}</td>
+    <td><span style="background:var(--bg);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--ink);border:1px solid var(--border)">${c.cargo||'Professor'}</span></td>
+    <td>${c.email?`<span style="font-size:13px;color:var(--accent)"><i class="ph ph-envelope-simple"></i> ${c.email}</span>`:'<span class="pill pill-warn"><i class="ph ph-warning-circle"></i> Faltando e-mail</span>'}</td>
+    <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-mail="${c.cpf}"><i class="ph ph-pencil-simple"></i> Editar</button></td>
+  </tr>`).join('');
+  
+  $('content').innerHTML=`<div class="view"><div class="panel">
+    <h2><i class="ph ph-users"></i> Equipe Escolar Cadastrada <span class="pill pill-info" style="margin-left:8px">${state.colaboradores.length}</span></h2>
+    ${semEmail?`<div class="note" style="background:var(--amber-soft);color:var(--amber);border-color:var(--amber-soft)"><i class="ph-fill ph-warning-circle"></i> Atenção: ${semEmail} membro(s) da equipe não possuem e-mail cadastrado e não receberão comprovantes sistêmicos.</div>`:''}
+    <table><thead><tr><th>Nome</th><th>Documento</th><th>Função</th><th>Contato</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table>
+  </div></div>`;
+  $('content').querySelectorAll('[data-mail]').forEach(b=> b.onclick=()=>editarEmail(b.dataset.mail));
+}
+
+async function editarEmail(cpf){
+  const c=state.colaboradores.find(x=>x.cpf===cpf);
+  const novo=prompt(`Atualizar o e-mail de ${c.nome}:`, c.email||'');
+  if(novo===null) return;
+  const {error}=await db.from('colaboradores').update({email:novo.trim()||null}).eq('cpf',cpf);
+  if(error){ toast('Permissão negada. Apenas OED e Direção podem editar cadastros.','err'); return; }
+  toast('Contato atualizado com sucesso!','ok'); await carregarColaboradores(); abrir('colaboradores');
+}
+</script>
+</body>
+</html>
