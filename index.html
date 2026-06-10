@@ -301,7 +301,7 @@ const CORES = {
 const LABEL_PAPEL = { equipe: 'Equipe', oed: 'OED · Admin', diretora: 'Diretora' };
 const ICONES_ABAS = { visao: 'chart-pie-slice', retirada: 'hand-pointing', emprestimos: 'devices', liberacoes: 'key', relatorios: 'chart-bar', colaboradores: 'users' };
 
-const state = { papel: 'equipe', cpf: null, email: '', colaboradores: [], recursos: [], emprestimos: [], selCpf: null, aba: 'visao', numerosSelecionados: [] };
+const state = { papel: 'equipe', cpf: null, email: '', colaboradores: [], recursos: [], emprestimos: [], selCpf: null, selId: null, selNome: null, uid: null, aba: 'visao', numerosSelecionados: [] };
 let charts = {};
 
 /* ---------- Utilitários ---------- */
@@ -401,6 +401,7 @@ async function entrarApp(session){
     state.papel = perfil?.papel || 'equipe';
     state.cpf = perfil?.cpf || null;
     state.email = session.user.email;
+    state.uid = session.user.id;
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     $('who-email').textContent = state.email;
     $('who-papel').innerHTML = `<i class="ph ph-shield-check"></i> ${LABEL_PAPEL[state.papel] || state.papel}`;
@@ -412,8 +413,8 @@ async function entrarApp(session){
 
 async function recarregarTudo(){ await Promise.all([carregarRecursos(), carregarColaboradores(), carregarEmprestimos()]); }
 async function carregarRecursos(){ const {data} = await db.from('disponibilidade').select('*').order('id'); state.recursos = data||[]; }
-async function carregarColaboradores(){ const {data} = await db.from('colaboradores').select('nome,cpf,cargo,email').order('nome'); state.colaboradores = data||[]; }
-async function carregarEmprestimos(){ const {data} = await db.from('emprestimos').select('*, colaboradores(nome), recursos(nome,codigo,cor,total)').order('retirado_em',{ascending:false}); state.emprestimos = data||[]; }
+async function carregarColaboradores(){ const {data} = await db.from('colaboradores_busca').select('id,nome,cargo').order('nome'); state.colaboradores = data||[]; }
+async function carregarEmprestimos(){ const {data} = await db.from('emprestimos').select('*, recursos(nome,codigo,cor,total)').order('retirado_em',{ascending:false}); state.emprestimos = data||[]; }
 
 /* ============================================================
    NAVEGAÇÃO (ABAS)
@@ -469,7 +470,7 @@ function renderVisao(){
    TELA 2: NOVA RETIRADA
    ============================================================ */
 function renderRetirada(){
-  state.selCpf=null;
+  state.selId=null;
   state.numerosSelecionados=[];
   
   const opcoes=state.recursos.map(r=>`<option value="${r.id}">${r.nome} — ${r.disponivel} livres</option>`).join('');
@@ -524,9 +525,9 @@ function renderRetirada(){
     const q=inp.value.toLowerCase().trim();
     if(!q){ list.classList.add('hidden'); return; }
     const res=state.colaboradores.filter(c=>c.nome.toLowerCase().includes(q)).slice(0,6);
-    list.innerHTML=res.map(c=>`<div class="combo-item" data-cpf="${c.cpf}"><b>${c.nome}</b><small>${c.cargo||'Membro'} · CPF: ${maskCpf(c.cpf)}</small></div>`).join('')||'<div class="combo-item" style="color:var(--muted)">Nenhum registro encontrado.</div>';
+    list.innerHTML=res.map(c=>`<div class="combo-item" data-id="${c.id}"><b>${c.nome}</b><small>${c.cargo||'Membro'}</small></div>`).join('')||'<div class="combo-item" style="color:var(--muted)">Nenhum registro encontrado.</div>';
     list.classList.remove('hidden');
-    list.querySelectorAll('[data-cpf]').forEach(it=> it.onclick=()=>selecionarCol(it.dataset.cpf));
+    list.querySelectorAll('[data-id]').forEach(it=> it.onclick=()=>selecionarCol(it.dataset.id));
   };
   
   inp.onblur=()=>setTimeout(()=>list.classList.add('hidden'), 200);
@@ -535,14 +536,14 @@ function renderRetirada(){
   $('btn-retirar').onclick=registrarRetirada;
 }
 
-function selecionarCol(cpf){
-  const c=state.colaboradores.find(x=>x.cpf===cpf); if(!c) return;
-  state.selCpf=cpf;
+function selecionarCol(id){
+  const c=state.colaboradores.find(x=>String(x.id)===String(id)); if(!c) return;
+  state.selId=c.id; state.selNome=c.nome;
   $('busca-col').value=''; 
   $('busca-col').placeholder = 'Alterar responsável...';
   $('combo-list').classList.add('hidden');
   $('col-sel').classList.remove('hidden');
-  $('col-sel').innerHTML=`<div class="chip" style="border-color:var(--accent); background:var(--accent-soft)"><span class="av">${iniciais(c.nome)}</span><div style="flex:1"><div style="font-weight:600;color:var(--accent-hover)">${c.nome}</div><div style="font-size:12px;color:var(--accent)">${maskCpf(c.cpf)} · ${c.cargo||'Membro'}</div></div><i class="ph-fill ph-check-circle" style="color:var(--accent);font-size:24px"></i></div>`;
+  $('col-sel').innerHTML=`<div class="chip" style="border-color:var(--accent); background:var(--accent-soft)"><span class="av">${iniciais(c.nome)}</span><div style="flex:1"><div style="font-weight:600;color:var(--accent-hover)">${c.nome}</div><div style="font-size:12px;color:var(--accent)">${c.cargo||'Membro'}</div></div><i class="ph-fill ph-check-circle" style="color:var(--accent);font-size:24px"></i></div>`;
 }
 
 // =========================================================================
@@ -643,7 +644,7 @@ function toggleSlot(btn, num, forceSelect) {
 }
 
 async function registrarRetirada(){
-  if(!state.selCpf){ toast('Por favor, informe o responsável pela retirada.','warn'); return; }
+  if(!state.selId){ toast('Por favor, informe o responsável pela retirada.','warn'); return; }
   if(!$('rec-sel').value){ toast('Selecione um recurso.','warn'); return; }
   
   const recurso_id = parseInt($('rec-sel').value);
@@ -668,7 +669,7 @@ async function registrarRetirada(){
   $('btn-retirar').innerHTML = '<i class="ph ph-spinner ph-spin"></i> Registrando...';
   
   const {error}=await db.from('emprestimos').insert({
-    colaborador_cpf: state.selCpf, recurso_id, quantidade, numeros: numeros.length ? numeros : null,
+    colaborador_id: state.selId, colaborador_nome: state.selNome, registrado_por_id: state.uid, recurso_id, quantidade, numeros: numeros.length ? numeros : null,
     devolucao_prevista: new Date(prazo).toISOString(), observacao: $('obs').value.trim()||null
   });
   
@@ -694,8 +695,7 @@ function renderEmprestimos(){
   const ativos=state.emprestimos.filter(e=>e.status==='ativo');
   const linhas=ativos.map(e=>`<tr>
     <td>
-      <div style="font-weight:600;color:var(--ink)">${e.colaboradores?.nome||'—'}</div>
-      <div style="font-size:12px;color:var(--muted)">CPF: ${maskCpf(e.colaborador_cpf)}</div>
+      <div style="font-weight:600;color:var(--ink)">${e.colaborador_nome||'—'}</div>
     </td>
     <td>
       <div style="display:flex;align-items:center;gap:8px">
@@ -742,7 +742,7 @@ function renderLiberacoes(){
     const d=Math.floor(diasAtraso(e));
     return `<div class="chip" style="margin-bottom:12px; border-left:4px solid var(--red)">
       <div style="flex:1">
-        <div style="font-weight:600">${e.colaboradores?.nome||'—'}</div>
+        <div style="font-weight:600">${e.colaborador_nome||'—'}</div>
         <div style="font-size:13px;color:var(--muted);margin-top:4px">
           <i class="ph ph-cube"></i> ${e.recursos?.nome||''} · ${(e.numeros&&e.numeros.length)?'IDs '+e.numeros.join(', '):e.quantidade+' un.'}
         </div>
@@ -832,18 +832,22 @@ function desenhar(id,labels,data,cor){
 /* ============================================================
    TELA 6: GERENCIAMENTO DE EQUIPE
    ============================================================ */
-function renderColaboradores(){
-  const semEmail=state.colaboradores.filter(c=>!c.email).length;
-  const linhas=state.colaboradores.map(c=>`<tr>
+let adminCols = [];
+async function renderColaboradores(){
+  $('content').innerHTML='<div class="view"><div class="panel"><div class="empty">Carregando cadastros...</div></div></div>';
+  const {data,error}=await db.from('colaboradores').select('nome,cpf,cargo,email').order('nome');
+  if(error){ $('content').innerHTML='<div class="view"><div class="panel"><div class="empty">Sem permissão para visualizar os cadastros.</div></div></div>'; return; }
+  adminCols = data||[];
+  const semEmail=adminCols.filter(c=>!c.email).length;
+  const linhas=adminCols.map(c=>`<tr>
     <td><div style="font-weight:600">${c.nome}</div></td>
     <td class="num" style="color:var(--muted)">${maskCpf(c.cpf)}</td>
     <td><span style="background:var(--bg);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--ink);border:1px solid var(--border)">${c.cargo||'Professor'}</span></td>
     <td>${c.email?`<span style="font-size:13px;color:var(--accent)"><i class="ph ph-envelope-simple"></i> ${c.email}</span>`:'<span class="pill pill-warn"><i class="ph ph-warning-circle"></i> Faltando e-mail</span>'}</td>
     <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-mail="${c.cpf}"><i class="ph ph-pencil-simple"></i> Editar</button></td>
   </tr>`).join('');
-  
   $('content').innerHTML=`<div class="view"><div class="panel">
-    <h2><i class="ph ph-users"></i> Equipe Escolar Cadastrada <span class="pill pill-info" style="margin-left:8px">${state.colaboradores.length}</span></h2>
+    <h2><i class="ph ph-users"></i> Equipe Escolar Cadastrada <span class="pill pill-info" style="margin-left:8px">${adminCols.length}</span></h2>
     ${semEmail?`<div class="note" style="background:var(--amber-soft);color:var(--amber);border-color:var(--amber-soft)"><i class="ph-fill ph-warning-circle"></i> Atenção: ${semEmail} membro(s) da equipe não possuem e-mail cadastrado e não receberão comprovantes sistêmicos.</div>`:''}
     <table><thead><tr><th>Nome</th><th>Documento</th><th>Função</th><th>Contato</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table>
   </div></div>`;
@@ -851,12 +855,12 @@ function renderColaboradores(){
 }
 
 async function editarEmail(cpf){
-  const c=state.colaboradores.find(x=>x.cpf===cpf);
+  const c=adminCols.find(x=>x.cpf===cpf);
   const novo=prompt(`Atualizar o e-mail de ${c.nome}:`, c.email||'');
   if(novo===null) return;
   const {error}=await db.from('colaboradores').update({email:novo.trim()||null}).eq('cpf',cpf);
   if(error){ toast('Permissão negada. Apenas OED e Direção podem editar cadastros.','err'); return; }
-  toast('Contato atualizado com sucesso!','ok'); await carregarColaboradores(); abrir('colaboradores');
+  toast('Contato atualizado com sucesso!','ok'); abrir('colaboradores');
 }
 </script>
 </body>
