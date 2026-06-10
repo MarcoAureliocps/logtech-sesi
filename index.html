@@ -377,6 +377,21 @@ $('btn-novasenha').onclick = async () => {
 };
 $('btn-sair').onclick = async () => { await db.auth.signOut(); location.reload(); };
 
+// Logout automático por inatividade (5 minutos)
+let idleTimer = null;
+const IDLE_MS = 5 * 60 * 1000;
+function resetIdleTimer(){
+  if(!state.uid) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(async () => {
+    toast('Sessão encerrada por inatividade.','warn');
+    await db.auth.signOut();
+    setTimeout(() => location.reload(), 900);
+  }, IDLE_MS);
+}
+['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
+  document.addEventListener(ev, resetIdleTimer, { passive: true }));
+
 db.auth.onAuthStateChange((event, session) => {
   if(event==='PASSWORD_RECOVERY'){
     $('login').classList.remove('hidden'); $('app').classList.add('hidden');
@@ -402,6 +417,7 @@ async function entrarApp(session){
     state.cpf = perfil?.cpf || null;
     state.email = session.user.email;
     state.uid = session.user.id;
+    resetIdleTimer();
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     $('who-email').textContent = state.email;
     $('who-papel').innerHTML = `<i class="ph ph-shield-check"></i> ${LABEL_PAPEL[state.papel] || state.papel}`;
@@ -516,7 +532,11 @@ function renderRetirada(){
         </div>
       </div>
       
-      <button class="btn" id="btn-retirar" style="width:100%; margin-top:16px; font-size:16px; padding:16px"><i class="ph ph-check-circle"></i> Confirmar Retirada</button>
+      <label style="display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:13px;color:var(--ink);cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+        <input type="checkbox" id="aceite-termo" style="width:auto;margin-top:2px;flex:none;cursor:pointer">
+        <span>Declaro que estou retirando os equipamentos selecionados e me responsabilizo pela conferência e pela devolução em bom estado.</span>
+      </label>
+      <button class="btn" id="btn-retirar" disabled style="width:100%; margin-top:12px; font-size:16px; padding:16px"><i class="ph ph-check-circle"></i> Confirmar Retirada</button>
     </div>
   </div>`;
 
@@ -534,6 +554,7 @@ function renderRetirada(){
   
   $('rec-sel').onchange = () => gerarGridCarrinho($('rec-sel').value);
   $('btn-retirar').onclick=registrarRetirada;
+  $('aceite-termo').onchange=e=>{ $('btn-retirar').disabled=!e.target.checked; };
 }
 
 function selecionarCol(id){
