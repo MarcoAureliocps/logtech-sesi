@@ -195,6 +195,8 @@
     bottom: 0;
     left: 0;
   }
+  .pin-overlay{position:fixed;inset:0;background:rgba(20,25,40,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .pin-card{background:var(--surface);border-radius:var(--radius);padding:26px;width:340px;max-width:100%;box-shadow:0 12px 44px rgba(0,0,0,.22)}
 </style>
 </head>
 <body>
@@ -280,6 +282,21 @@
   </div>
 </div>
 
+<div id="pin-modal" class="hidden pin-overlay">
+  <div class="pin-card">
+    <div style="text-align:center">
+      <i class="ph-fill ph-shield-check" style="font-size:38px;color:var(--accent)"></i>
+      <h3 style="margin:10px 0 4px">Confirmação de identidade</h3>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Peça o PIN de <b id="pin-nome"></b> para concluir a retirada.</p>
+    </div>
+    <input id="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="• • • •" style="text-align:center;font-size:24px;letter-spacing:8px;padding:12px">
+    <div id="pin-erro" style="color:var(--red);font-size:13px;text-align:center;min-height:18px;margin-top:8px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-ghost" id="pin-cancelar" style="flex:1">Cancelar</button>
+      <button class="btn" id="pin-confirmar" style="flex:1">Confirmar</button>
+    </div>
+  </div>
+</div>
 <div id="toasts"></div>
 
 <script>
@@ -686,16 +703,40 @@ async function registrarRetirada(){
   
   if(rec && quantidade > rec.disponivel){ toast(`Atenção: Apenas ${rec.disponivel} unidade(s) de ${rec.nome} disponíveis.`,'err'); return; }
   
-  $('btn-retirar').disabled=true;
-  $('btn-retirar').innerHTML = '<i class="ph ph-spinner ph-spin"></i> Registrando...';
-  
-  const {error}=await db.from('emprestimos').insert({
-    colaborador_id: state.selId, colaborador_nome: state.selNome, registrado_por_id: state.uid, recurso_id, quantidade, numeros: numeros.length ? numeros : null,
-    devolucao_prevista: new Date(prazo).toISOString(), observacao: $('obs').value.trim()||null
+  state._pendente = { recurso_id, numeros, quantidade, prazo, observacao: $('obs').value.trim()||null };
+  abrirPin();
+}
+
+function abrirPin(){
+  $('pin-nome').textContent = state.selNome || 'o responsável';
+  $('pin-input').value=''; $('pin-erro').textContent='';
+  $('pin-cancelar').onclick = fecharPin;
+  $('pin-confirmar').onclick = executarRetirada;
+  $('pin-input').onkeydown = e=>{ if(e.key==='Enter') executarRetirada(); };
+  $('pin-modal').classList.remove('hidden');
+  setTimeout(()=>$('pin-input').focus(), 50);
+}
+function fecharPin(){ $('pin-modal').classList.add('hidden'); }
+async function executarRetirada(){
+  const pin = $('pin-input').value.trim();
+  if(!/^\d{4}$/.test(pin)){ $('pin-erro').textContent='Digite os 4 dígitos do PIN.'; return; }
+  $('pin-confirmar').disabled=true; $('pin-confirmar').innerHTML='<i class="ph ph-spinner ph-spin"></i> Verificando...';
+  const { data: ok, error: e1 } = await db.rpc('verificar_pin', { p_colaborador_id: state.selId, p_pin: pin });
+  if(e1 || !ok){
+    $('pin-confirmar').disabled=false; $('pin-confirmar').innerHTML='Confirmar';
+    $('pin-erro').textContent = e1 ? 'Erro ao verificar. Tente de novo.' : 'PIN incorreto. Tente novamente.';
+    $('pin-input').value=''; $('pin-input').focus();
+    return;
+  }
+  const p = state._pendente;
+  const { error } = await db.from('emprestimos').insert({
+    colaborador_id: state.selId, colaborador_nome: state.selNome, recurso_id: p.recurso_id,
+    quantidade: p.quantidade, numeros: p.numeros.length ? p.numeros : null,
+    devolucao_prevista: new Date(p.prazo).toISOString(), observacao: p.observacao
   });
-  
-  if(error){ toast('Erro no banco: '+error.message,'err'); $('btn-retirar').disabled=false; $('btn-retirar').innerHTML='<i class="ph ph-check-circle"></i> Tentar Novamente'; return; }
-  
+  $('pin-confirmar').disabled=false; $('pin-confirmar').innerHTML='Confirmar';
+  if(error){ $('pin-erro').textContent='Erro ao registrar: '+error.message; return; }
+  fecharPin();
   toast('Retirada registrada com sucesso!','ok');
   await Promise.all([carregarRecursos(),carregarEmprestimos()]);
   abrir('emprestimos');
@@ -856,7 +897,7 @@ function desenhar(id,labels,data,cor){
 let adminCols = [];
 async function renderColaboradores(){
   $('content').innerHTML='<div class="view"><div class="panel"><div class="empty">Carregando cadastros...</div></div></div>';
-  const {data,error}=await db.from('colaboradores').select('nome,cpf,cargo,email').order('nome');
+  const {data,error}=await db.from('colaboradores').select('id,nome,cpf,cargo,email').order('nome');
   if(error){ $('content').innerHTML='<div class="view"><div class="panel"><div class="empty">Sem permissão para visualizar os cadastros.</div></div></div>'; return; }
   adminCols = data||[];
   const semEmail=adminCols.filter(c=>!c.email).length;
@@ -865,7 +906,7 @@ async function renderColaboradores(){
     <td class="num" style="color:var(--muted)">${maskCpf(c.cpf)}</td>
     <td><span style="background:var(--bg);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--ink);border:1px solid var(--border)">${c.cargo||'Professor'}</span></td>
     <td>${c.email?`<span style="font-size:13px;color:var(--accent)"><i class="ph ph-envelope-simple"></i> ${c.email}</span>`:'<span class="pill pill-warn"><i class="ph ph-warning-circle"></i> Faltando e-mail</span>'}</td>
-    <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-mail="${c.cpf}"><i class="ph ph-pencil-simple"></i> Editar</button></td>
+    <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-sm" data-pin="${c.id}"><i class="ph ph-password"></i> PIN</button> <button class="btn btn-ghost btn-sm" data-mail="${c.cpf}"><i class="ph ph-pencil-simple"></i> Editar</button></td>
   </tr>`).join('');
   $('content').innerHTML=`<div class="view"><div class="panel">
     <h2><i class="ph ph-users"></i> Equipe Escolar Cadastrada <span class="pill pill-info" style="margin-left:8px">${adminCols.length}</span></h2>
@@ -873,6 +914,7 @@ async function renderColaboradores(){
     <table><thead><tr><th>Nome</th><th>Documento</th><th>Função</th><th>Contato</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table>
   </div></div>`;
   $('content').querySelectorAll('[data-mail]').forEach(b=> b.onclick=()=>editarEmail(b.dataset.mail));
+  $('content').querySelectorAll('[data-pin]').forEach(b=> b.onclick=()=>resetarPin(parseInt(b.dataset.pin)));
 }
 
 async function editarEmail(cpf){
@@ -882,6 +924,16 @@ async function editarEmail(cpf){
   const {error}=await db.from('colaboradores').update({email:novo.trim()||null}).eq('cpf',cpf);
   if(error){ toast('Permissão negada. Apenas OED e Direção podem editar cadastros.','err'); return; }
   toast('Contato atualizado com sucesso!','ok'); abrir('colaboradores');
+}
+
+async function resetarPin(id){
+  const col=adminCols.find(x=>x.id===id);
+  const novo=prompt(`Definir novo PIN de 4 dígitos para ${col?col.nome:'o colaborador'}:`);
+  if(novo===null) return;
+  if(!/^\d{4}$/.test((novo||'').trim())){ toast('O PIN deve ter exatamente 4 dígitos.','warn'); return; }
+  const {error}=await db.rpc('definir_pin',{ p_colaborador_id:id, p_novo_pin:novo.trim() });
+  if(error){ toast('Não foi possível definir o PIN: '+error.message,'err'); return; }
+  toast('PIN atualizado com sucesso.','ok');
 }
 </script>
 </body>
