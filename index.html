@@ -197,6 +197,12 @@
   }
   .pin-overlay{position:fixed;inset:0;background:rgba(20,25,40,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
   .pin-card{background:var(--surface);border-radius:var(--radius);padding:26px;width:340px;max-width:100%;box-shadow:0 12px 44px rgba(0,0,0,.22)}
+  @media print {
+    body * { visibility: hidden !important; }
+    #recibo-card, #recibo-card * { visibility: visible !important; }
+    #recibo-card { position: absolute; left: 0; top: 0; width: 100%; }
+    .pin-overlay { background: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -294,6 +300,25 @@
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn btn-ghost" id="pin-cancelar" style="flex:1">Cancelar</button>
       <button class="btn" id="pin-confirmar" style="flex:1">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="recibo-modal" class="hidden pin-overlay">
+  <div class="pin-card" style="width:380px;padding:0;overflow:hidden">
+    <div id="recibo-card" style="padding:24px;color:#191c22;background:#fff">
+      <div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:12px;margin-bottom:12px">
+        <div style="font-family:'Space Grotesk';font-size:18px;font-weight:700">LOGTECH</div>
+        <div style="font-size:12px;color:#666">Escola SESI de Sumaré · nº 341</div>
+        <div style="font-size:14px;font-weight:600;margin-top:8px">Comprovante de Retirada</div>
+      </div>
+      <div id="recibo-corpo" style="font-size:13px;line-height:1.8"></div>
+      <div style="border-top:1px dashed #ccc;margin-top:12px;padding-top:10px;font-size:11px;color:#666">
+        Declaro que retirei os equipamentos acima e me responsabilizo pela conferência e devolução em bom estado.
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-ghost" id="recibo-fechar" style="flex:1">Fechar</button>
+      <button class="btn" id="recibo-imprimir" style="flex:1"><i class="ph ph-printer"></i> Imprimir / PDF</button>
     </div>
   </div>
 </div>
@@ -729,17 +754,33 @@ async function executarRetirada(){
     return;
   }
   const p = state._pendente;
-  const { error } = await db.from('emprestimos').insert({
+  const { data: novo, error } = await db.from('emprestimos').insert({
     colaborador_id: state.selId, colaborador_nome: state.selNome, recurso_id: p.recurso_id,
     quantidade: p.quantidade, numeros: p.numeros.length ? p.numeros : null,
     devolucao_prevista: new Date(p.prazo).toISOString(), observacao: p.observacao
-  });
+  }).select('id').single();
   $('pin-confirmar').disabled=false; $('pin-confirmar').innerHTML='Confirmar';
   if(error){ $('pin-erro').textContent='Erro ao registrar: '+error.message; return; }
   fecharPin();
   toast('Retirada registrada com sucesso!','ok');
+  mostrarRecibo({ id: novo?novo.id:null, nome: state.selNome, recurso_id: p.recurso_id, numeros: p.numeros, quantidade: p.quantidade, prazo: p.prazo, observacao: p.observacao });
   await Promise.all([carregarRecursos(),carregarEmprestimos()]);
-  abrir('emprestimos');
+}
+
+function mostrarRecibo(d){
+  const rec = state.recursos.find(r=>r.id===d.recurso_id);
+  $('recibo-corpo').innerHTML = `
+    <div><b>Nº do registro:</b> ${d.id||'—'}</div>
+    <div><b>Data/hora:</b> ${new Date().toLocaleString('pt-BR')}</div>
+    <div><b>Responsável:</b> ${d.nome}</div>
+    <div><b>Equipamento:</b> ${rec?rec.nome:'—'}</div>
+    <div><b>${d.numeros&&d.numeros.length?'Números:':'Quantidade:'}</b> ${d.numeros&&d.numeros.length?d.numeros.join(', '):d.quantidade}</div>
+    <div><b>Devolução prevista:</b> ${new Date(d.prazo).toLocaleString('pt-BR')}</div>
+    ${d.observacao?`<div><b>Obs.:</b> ${d.observacao}</div>`:''}
+    <div><b>Operador:</b> ${state.email}</div>`;
+  $('recibo-imprimir').onclick = ()=> window.print();
+  $('recibo-fechar').onclick = ()=>{ $('recibo-modal').classList.add('hidden'); abrir('emprestimos'); };
+  $('recibo-modal').classList.remove('hidden');
 }
 
 /* ============================================================
